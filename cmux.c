@@ -56,7 +56,7 @@
 #define LINE_SPEED B115200
 
 /* maximum transfert unit (MTU), value in bytes */
-#define MTU 512
+#define MTU 122
 
 /**
  * whether or not to create virtual TTYs for the multiplex
@@ -69,10 +69,11 @@
 #define NUM_NODES 4
 
 /* name of the virtual TTYs to create */
-#define BASENAME_NODES "/dev/ttyS5"
+#define BASENAME_NODES "/dev/ttygsm"
 
 /* name of the driver, used to get the major number */
 #define DRIVER_NAME "gsmtty"
+
 
 /**
  * whether or not to print debug messages to stderr
@@ -275,7 +276,7 @@ int main(void) {
     struct termios tio;
     int ldisc = N_GSM0710;
     struct gsm_config gsm;
-    //char atcommand[40];
+    char atcommand[40];
 
     /* print global parameters */
     dbg("SERIAL_PORT = %s", SERIAL_PORT);
@@ -312,6 +313,8 @@ int main(void) {
      *	to fit your modem needs.
      *	The following matches Quectel M95.
      */
+    if (send_at_command(serial_fd, "AT+CFUN=1\r") == -1)
+        errx(EXIT_FAILURE, "AT+CFUN=1: bad response");
     if (send_at_command(serial_fd, "AT#SELINT=2\r") == -1)
         errx(EXIT_FAILURE, "AT#SELINT=2: bad response");
     if (send_at_command(serial_fd, "ATE0V1&K0&D0\r") == -1)
@@ -326,12 +329,13 @@ int main(void) {
         errx(EXIT_FAILURE, "AT+IPR=115200: bad response");
     if (send_at_command(serial_fd, "AT#CPUMODE=3\r") == -1)
         errx(EXIT_FAILURE, "AT#CPUMODE=3: bad response");
-    if (send_at_command(serial_fd, "AT#CMUXMODE=5\r") == -1)
-        errx(EXIT_FAILURE, "AT#CMUXMODE=5: bad response");
+    if (send_at_command(serial_fd, "AT#CMUXMODE=1\r") == -1)
+        errx(EXIT_FAILURE, "AT#CMUXMODE=1: bad response");
     //sprintf(atcommand, "AT+CMUX=0,0,5,%d,10,3,30,10,2\r", MTU);
+    sprintf(atcommand, "AT+CMUX=0,0,,%d\r", MTU);
     //if (send_at_command(serial_fd, atcommand) == -1)
     
-    send_at_command(serial_fd, "AT+CMUX=0,0,,512\r");
+    send_at_command(serial_fd, atcommand);
 
     /* use n_gsm line discipline */
     //sleep(0.5);
@@ -351,7 +355,7 @@ int main(void) {
     gsm.n2 = 3;
     gsm.t2 = 30;
     gsm.t3 = 10;
-
+    
     if (ioctl(serial_fd, GSMIOC_SETCONF, &gsm) < 0)
         err(EXIT_FAILURE, "Cannot set GSM multiplex parameters");
     dbg("Line dicipline set");
