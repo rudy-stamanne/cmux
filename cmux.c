@@ -69,7 +69,7 @@
 #define NUM_NODES	4
 
 /* name of the virtual TTYs to create */
-#define BASENAME_NODES	"/dev/ttyGSM"
+#define BASENAME_NODES	"/dev/ttyS5"
 
 /* name of the driver, used to get the major number */
 #define DRIVER_NAME	"gsmtty"
