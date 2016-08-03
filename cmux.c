@@ -334,7 +334,7 @@ int main(void) {
     send_at_command(serial_fd, "AT+CMUX=0,0,,512\r");
 
     /* use n_gsm line discipline */
-    sleep(0.5);
+    //sleep(0.5);
     if (ioctl(serial_fd, TIOCSETD, &ldisc) < 0)
         err(EXIT_FAILURE, "Cannot set line dicipline. Is 'n_gsm' module registred?");
 
