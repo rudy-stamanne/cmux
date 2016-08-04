@@ -56,7 +56,7 @@
 #define LINE_SPEED B115200
 
 /* maximum transfert unit (MTU), value in bytes */
-#define MTU 122
+#define MTU 512
 
 /**
  * whether or not to create virtual TTYs for the multiplex
@@ -69,7 +69,7 @@
 #define NUM_NODES 4
 
 /* name of the virtual TTYs to create */
-#define BASENAME_NODES "/dev/ttygsm"
+#define BASENAME_NODES "/dev/ttyGSM"
 
 /* name of the driver, used to get the major number */
 #define DRIVER_NAME "gsmtty"
@@ -119,26 +119,43 @@ int send_at_command(int serial_fd, char *command) {
 
     char buf[SIZE_BUF];
     int r;
-
+    int retry = 50;
     /* write the AT command to the serial line */
     if (write(serial_fd, command, strlen(command)) <= 0)
         err(EXIT_FAILURE, "Cannot write to %s", SERIAL_PORT);
 
     /* wait a bit to allow the modem to rest */
-    sleep(1);
+    r=0;
+    retry=50;
+    while (retry != 0) {
+        sleep(1);
 
-    /* read the result of the command from the modem */
-    memset(buf, 0, sizeof (buf));
-    r = read(serial_fd, buf, sizeof (buf));
-    if (r == -1)
-        err(EXIT_FAILURE, "Cannot read %s", SERIAL_PORT);
+        /* read the result of the command from the modem */
+        memset(buf, 0, sizeof (buf));
+        r = read(serial_fd, buf, sizeof (buf));
+        if (r == -1){
+            if (retry==0)
+            {
+             err(EXIT_FAILURE, "Cannot read %s", SERIAL_PORT);
+            } 
+        }
 
-    /* if there is no result from the modem, return failure */
-    if (r == 0) {
-        dbg("%s\t: No response", command);
-        return -1;
+        /* if there is no result from the modem, return failure */
+        if (r == 0) {
+            if (retry==0)
+            {
+                return -1;
+            }
+                
+            //dbg("%s\t: No response", command);
+            //return -1;
+        }
+            /* if the output shows "OK" return success */
+        if (strstr(buf, "OK\r") != NULL) {
+        return 0;
+        }
+        retry--;
     }
-
     /* if we have a result and want debug info, strip CR & LF out from the output */
     if (DEBUG) {
         int i;
@@ -148,7 +165,7 @@ int send_at_command(int serial_fd, char *command) {
             if (bufp[i] == '\r' || bufp[i] == '\n')
                 bufp[i] = ' ';
         }
-        dbg("%s\t: %s", command, bufp);
+        dbg("%s\t:--> %s", command, bufp);
     }
 
     /* if the output shows "OK" return success */
@@ -317,8 +334,8 @@ int main(void) {
         errx(EXIT_FAILURE, "AT+CFUN=1: bad response");
     if (send_at_command(serial_fd, "AT#SELINT=2\r") == -1)
         errx(EXIT_FAILURE, "AT#SELINT=2: bad response");
-    if (send_at_command(serial_fd, "ATE0V1&K0&D0\r") == -1)
-        errx(EXIT_FAILURE, "ATE0V1&K0&D0: bad response");
+    if (send_at_command(serial_fd, "ATE0V1&K3&D2\r") == -1)
+        errx(EXIT_FAILURE, "ATE0V1&K3&D2: bad response");
     if (send_at_command(serial_fd, "AT+IFC=2,2\r") == -1)
         errx(EXIT_FAILURE, "AT+IFC=2,2: bad response");
     if (send_at_command(serial_fd, "AT+GMM\r") == -1)
@@ -334,9 +351,8 @@ int main(void) {
     //sprintf(atcommand, "AT+CMUX=0,0,5,%d,10,3,30,10,2\r", MTU);
     sprintf(atcommand, "AT+CMUX=0,0,,%d\r", MTU);
     //if (send_at_command(serial_fd, atcommand) == -1)
-    
-    send_at_command(serial_fd, atcommand);
-
+    if (send_at_command(serial_fd, "AT+CMUX=0,0,,512\r") == -1)
+        errx(EXIT_FAILURE, "AT+CMUX: bad response");
     /* use n_gsm line discipline */
     //sleep(0.5);
     if (ioctl(serial_fd, TIOCSETD, &ldisc) < 0)
@@ -355,7 +371,7 @@ int main(void) {
     gsm.n2 = 3;
     gsm.t2 = 30;
     gsm.t3 = 10;
-    
+
     if (ioctl(serial_fd, GSMIOC_SETCONF, &gsm) < 0)
         err(EXIT_FAILURE, "Cannot set GSM multiplex parameters");
     dbg("Line dicipline set");
